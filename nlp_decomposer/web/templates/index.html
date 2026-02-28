@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLP Decomposer - 自然语言原子行为拆解器</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- 顶部导航 -->
+        <header class="header">
+            <h1>NLP Decomposer</h1>
+            <p class="subtitle">自然语言原子行为拆解器</p>
+        </header>
+
+        <div class="main-layout">
+            <!-- 左侧：原子行为库 -->
+            <aside class="sidebar">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>原子行为库</h2>
+                        <span class="badge" id="action-count">0</span>
+                    </div>
+                    <div class="filter-bar">
+                        <input type="text" id="action-search" placeholder="搜索行为..." class="search-input">
+                        <div class="filter-tags">
+                            <button class="tag active" data-filter="all">全部</button>
+                            <button class="tag" data-filter="code">代码</button>
+                            <button class="tag" data-filter="llm">LLM</button>
+                        </div>
+                    </div>
+                    <div class="action-list" id="action-list">
+                        <!-- 动态填充 -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 中间：主工作区 -->
+            <main class="workspace">
+                <!-- 模式切换 -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="manual">手动构建计划</button>
+                    <button class="mode-tab" data-mode="auto">自然语言拆解</button>
+                </div>
+
+                <!-- 手动模式 -->
+                <div class="mode-content active" id="mode-manual">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>执行计划</h2>
+                            <div class="panel-actions">
+                                <button class="btn btn-sm" id="btn-add-step">+ 添加步骤</button>
+                                <button class="btn btn-sm btn-outline" id="btn-clear-steps">清空</button>
+                            </div>
+                        </div>
+                        <div class="steps-container" id="steps-container">
+                            <div class="empty-state" id="steps-empty">
+                                <div class="empty-icon">&#9776;</div>
+                                <p>点击左侧行为或"添加步骤"按钮来构建执行计划</p>
+                                <p class="hint">支持拖拽行为卡片到此处</p>
+                            </div>
+                        </div>
+                        <div class="execute-bar">
+                            <button class="btn btn-primary btn-lg" id="btn-execute">
+                                &#9654; 执行计划
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 自动模式 -->
+                <div class="mode-content" id="mode-auto">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>自然语言输入</h2>
+                        </div>
+                        <div class="auto-input-area">
+                            <textarea id="nl-input" class="nl-textarea"
+                                placeholder="输入自然语言指令，例如：&#10;&#10;把 Hello World 转为大写，然后统计字符数&#10;&#10;计算 15 和 8 的和，如果结果大于 20 就乘以 2"></textarea>
+                            <div class="auto-actions">
+                                <button class="btn btn-outline" id="btn-decompose-only">
+                                    仅拆解
+                                </button>
+                                <button class="btn btn-primary btn-lg" id="btn-decompose-exec">
+                                    &#9654; 拆解并执行
+                                </button>
+                            </div>
+                        </div>
+                        <!-- 拆解后的计划预览 -->
+                        <div class="plan-preview" id="plan-preview" style="display:none">
+                            <div class="panel-header">
+                                <h3>拆解结果</h3>
+                            </div>
+                            <div class="plan-explanation" id="plan-explanation"></div>
+                            <div class="plan-steps" id="plan-steps"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- 右侧：执行结果 -->
+            <aside class="result-panel">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>执行结果</h2>
+                        <button class="btn btn-sm btn-outline" id="btn-clear-results">清空</button>
+                    </div>
+                    <div class="result-content" id="result-content">
+                        <div class="empty-state">
+                            <div class="empty-icon">&#9881;</div>
+                            <p>执行计划后结果将显示在这里</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- 添加步骤的弹窗 -->
+    <div class="modal-overlay" id="modal-overlay" style="display:none">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">添加步骤</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>步骤 ID</label>
+                    <input type="text" id="step-id" class="form-input" placeholder="唯一标识，如 step1">
+                </div>
+                <div class="form-group">
+                    <label>选择行为</label>
+                    <select id="step-action" class="form-input">
+                        <option value="">-- 选择原子行为 --</option>
+                    </select>
+                </div>
+                <div class="form-group" id="params-container" style="display:none">
+                    <label>参数</label>
+                    <div id="params-fields"></div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="step-has-condition"> 条件执行
+                    </label>
+                    <input type="text" id="step-condition" class="form-input"
+                        placeholder='如: $results.step1 > 10' style="display:none">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btn-modal-cancel">取消</button>
+                <button class="btn btn-primary" id="btn-modal-confirm">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
